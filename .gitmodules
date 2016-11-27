@@ -1,0 +1,9 @@
+[submodule "lib/FFmpeg"]
+	path = lib/FFmpeg
+	url = git@github.com:FFmpeg/FFmpeg.git
+[submodule "lib/x264"]
+	path = lib/x264
+	url = git://git.videolan.org/x264.git
+[submodule "lib/libvpx"]
+	path = lib/libvpx
+	url = https://chromium.googlesource.com/webm/libvpx

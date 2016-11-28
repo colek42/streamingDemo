@@ -3,13 +3,9 @@ package packetsender
 import (
 	"errors"
 	"github.com/colek42/ffgopeg/avcodec"
-	"log"
-	//	"gopkg.in/targodan/ffgopeg.v1/avdevice"
-	//	"gopkg.in/targodan/ffgopeg.v1/avfilter"
 	"github.com/colek42/ffgopeg/avformat"
 	"github.com/colek42/ffgopeg/avutil"
-	//	"gopkg.in/targodan/ffgopeg.v1/swresample"
-	//	"gopkg.in/targodan/ffgopeg.v1/swscale"
+	"log"
 	"time"
 )
 
@@ -59,7 +55,7 @@ func OpenStream(uri string, packetChan chan tspacket) {
 			//frame.Unref()
 		}
 
-		packetChan <- &tspacket{
+		packetChan <- tspacket{
 			data:      packet.GetData(),
 			pts:       packet.Pts(),
 			dts:       packet.Dts(),

@@ -60,11 +60,8 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 }
 
 func Serve() {
-
 	http.HandleFunc("/ws", serveWs)
 	http.HandleFunc("/", home)
-	//r.Path("/").Handler(http.FileServer(http.Dir(webroot)))
-
 	err := http.ListenAndServe("0.0.0.0:8787", nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
@@ -85,5 +82,6 @@ func messageWriter(c *client, v *VideoRoom) {
 }
 
 func home(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, webroot+r.URL.Path[1:])
+	log.Printf("Req: %v", webroot+r.URL.Path)
+	http.ServeFile(w, r, webroot+r.URL.Path)
 }

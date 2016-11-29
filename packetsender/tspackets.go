@@ -55,11 +55,13 @@ func OpenStream(uri string, packetChan chan tspacket) {
 			//frame.Unref()
 		}
 
-		packetChan <- tspacket{
-			data:      packet.GetData(),
-			pts:       packet.Pts(),
-			dts:       packet.Dts(),
-			timeStamp: time.Now().UnixNano(),
+		if len(packetChan) < 5 {
+			packetChan <- tspacket{
+				data:      packet.GetData(),
+				pts:       packet.Pts(),
+				dts:       packet.Dts(),
+				timeStamp: time.Now().UnixNano(),
+			}
 		}
 		packet.Unref()
 	}

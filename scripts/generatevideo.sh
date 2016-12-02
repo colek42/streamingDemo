@@ -13,7 +13,7 @@ ffmpeg \
     -v info \
     -re \
     -f lavfi \
-    -i "testsrc=size=qcif:rate=ntsc" \
+    -i "testsrc=size=1280x720:rate=ntsc" \
     -f lavfi \
     -i "anoisesrc=c=pink" \
     -c:v libx264 \

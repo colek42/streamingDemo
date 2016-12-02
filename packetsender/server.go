@@ -35,8 +35,12 @@ func startVideo(room *VideoRoom) {
 }
 
 func serveWs(w http.ResponseWriter, r *http.Request) {
-	log.Printf("serveWs")
-	uri := "udp://234.5.5.5:8209"
+
+	uri := r.URL.Query().Get("uri")
+	log.Println(uri)
+	// if uri == "" {
+	// 	return
+	// }
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Error %v", err)
@@ -73,10 +77,13 @@ func messageWriter(c *client, v *VideoRoom) {
 		select {
 		case pkt, ok := <-v.tsPackets:
 			if !ok {
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
-
+				continue
 			}
-			c.conn.WriteMessage(websocket.BinaryMessage, pkt.data)
+			err := c.conn.WriteMessage(websocket.BinaryMessage, pkt.data)
+			if err != nil {
+				log.Printf("Err Sending Websocket: %v", err)
+			}
+
 		}
 	}
 }

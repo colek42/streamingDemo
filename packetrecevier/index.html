@@ -3,7 +3,6 @@
 
 <head>
     <meta charset="utf-8">
-    <script src="ffmpeg-h264.js"></script>
     <script src="YUVCanvas.js"></script>
 </head>
 
@@ -12,152 +11,60 @@
         <button id="openbtn">Open</button>
         <input id="uri" type="text" value="rtsp://root:camera@10.7.228.229/stream/profile1"></input>
     </div>
-    <canvas id="glCanvas" width="640 " height="360 " style="border:1px solid black"></canvas>
+    <canvas id="glCanvas" width="1920" height="1080" style="border:1px solid black"></canvas>
+    <video autoplay></video>
 </body>
 <script>
-//worker
-//more than one worker?  render to canvas off thread?
-//https://hacks.mozilla.org/2016/01/webgl-off-the-main-thread/
-
-
-var workerBlob = URL.createObjectURL(new Blob(['('
-
-    function() {
-        onmessage = function(e) {
-            if (e.data.message) {
-                switch (e.data.message) {
-                    case "openUri":
-                        startDecode(e.data.data);
-                        break
-                }
-            }
-        }
-    }
-
-    function startDecode(uri) {}
-
-
-    function initDecoder() {
-        Module.ccall('avcodec_register_all');
-        // find h264 decoder
-        codec = Module.ccall('avcodec_find_decoder_by_name', 'number', ['string'], ["h264"]);
-        if (codec == 0)
-            alert("Could not find H264 codec ");
-
-        ctx = Module.ccall('avcodec_alloc_context3', 'number', ['number'], [codec]);
-        ret = Module.ccall('avcodec_open2', 'number', ['number', 'number', 'number'], [ctx, codec, 0]);
-        if (ret < 0)
-            alert("Could not open codec ");
-
-        // allocate packet
-        pkt = Module._malloc(96);
-        Module.ccall('av_init_packet', 'null', ['number'], [pkt]);
-        pktData = Module._malloc(1024 * 50000);
-        Module.setValue(pkt + 24, pktData, '*');
-        // allocate video frame
-        frame = Module.ccall('avcodec_alloc_frame', 'number');
-        if (!frame)
-            alert("Could not allocate video frame ");
-
-        // init decode frame function
-        new_packet = Module.cwrap('av_packet_from_data', 'number', ['number', 'number', 'number']);
-        decode_frame = Module.cwrap('avcodec_decode_video2', 'number', ['number', 'number', 'number', 'number']);
-        got_frame = Module._malloc(4);
-    }
-
-    function initWebsocket(uri) {
-        ws = new WebSocket("ws://" + window.location.host + "/ws?uri=" + uri);
-        ws.binaryType = 'arraybuffer';
-        console.log("Opening ws  ws://" + window.location.host + "/ws?uri=" + uri);
-        ws.onmessage = decodePkt
-    }
-
-    function decodePkt(e) {
-        var buffer = new Uint8Array(event.data);
-        var dataSize = event.data.byteLength;
-        Module.setValue(pkt + 28, dataSize, 'i32');
-        Module.writeArrayToMemory(buffer, pktData);
-
-
-    }
-
-
-}.toString(),
-')()'
-], {
-type: 'application/javascript'
-})),
-decoder = new Worker(workerBlob)
-
+decoder = new Worker('worker.js');
 
 var ws = null;
 var uri = document.getElementById('uri');
 var openBtn = document.getElementById('openbtn');
+
+
+
 
 openBtn.onclick = function(e) {
     startDecode(uri.value)
 }
 
 function startDecode(uri) {
-    decoder.postMessage({
-        topic: "openUri"
-        data: uri
-    })
-
-    var canvas = document.getElementById("canvas");
     var yuvCanvas = new YUVCanvas({
         canvas: glCanvas,
         width: glCanvas.width,
         height: glCanvas.height
     });
-    ws = new WebSocket("ws://" + window.location.host + "/ws?uri=" + uri);
-    console.log("Opening ws  ws://" + window.location.host + "/ws?uri=" + uri);
-    ws.binaryType = 'arraybuffer';
 
-    // on receiving data. The buffer has to be a COMPLETE NAL UNIT, otherwise the buffer could not be decoded
-    ws.onmessage = function(event) {
-        var buffer = new Uint8Array(event.data);
-        var dataSize = event.data.byteLength;
-        Module.setValue(pkt + 28, dataSize, 'i32');
-        Module.writeArrayToMemory(buffer, pktData);
-
-        // decode next frame
-        var len = decode_frame(ctx, frame, got_frame, pkt);
-        if (len < 0) {
-            console.log(" Error while decoding frame ");
-            return;
-        }
-        if (Module.getValue(got_frame, 'i8') == 0)
-            console.log("No frame ");
-        else {
-            var frame_width = Module.getValue(frame + 68, 'i32');
-            var frame_height = Module.getValue(frame + 72, 'i32');
-            //console.log("Decoded Frame, W=" + frame_width + " , H=" + frame_height);
-
-            var frameYDataPtr = Module.getValue(frame, '*');
-            var frameUDataPtr = Module.getValue(frame + 4, '*');
-            var frameVDataPtr = Module.getValue(frame + 8, '*');
-            var frameYData = new Uint8Array(Module.HEAPU8.buffer, frameYDataPtr, frame_width * frame_height);
-            var frameUData = new Uint8Array(Module.HEAPU8.buffer, frameUDataPtr, frame_width / 2 * frame_height / 2);
-            var frameVData = new Uint8Array(Module.HEAPU8.buffer, frameVDataPtr, frame_width / 2 * frame_height / 2);
-            yuvCanvas.drawNextOuptutPictureGL({
-                yData: frameYData,
-                yDataPerRow: frame_width,
-                yRowCnt: frame_height,
-                uData: frameUData,
-                uDataPerRow: frame_width / 2,
-                uRowCnt: frame_height / 2,
-                vData: frameVData,
-                vDataPerRow: frame_width / 2,
-                vRowCnt: frame_height / 2
-            });
-        }
+    stream = glCanvas.captureStream();
+    var video = document.querySelector('video');
+    //video.srcObject = stream;
+    //debugger;
 
 
+
+
+    fullUri = "ws://" + window.location.host + "/ws?uri=" + uri
+
+    decoder.postMessage({
+        topic: "openUri",
+        data: fullUri
+    });
+
+    decoder.onmessage = function(e) {
+        var decodedFrame = e.data;
+        yuvCanvas.drawNextOuptutPictureGL({
+            yData: decodedFrame.frameYData,
+            yDataPerRow: decodedFrame.frame_width,
+            yRowCnt: decodedFrame.frame_height,
+            uData: decodedFrame.frameUData,
+            uDataPerRow: decodedFrame.frame_width / 2,
+            uRowCnt: decodedFrame.frame_height / 2,
+            vData: decodedFrame.frameVData,
+            vDataPerRow: decodedFrame.frame_width / 2,
+            vRowCnt: decodedFrame.frame_height / 2
+        });
     }
 }
 </script>
-
-</html>
 
 </html>
